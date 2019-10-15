@@ -317,7 +317,7 @@ class DebugfsDir:
             if not os.stat(p).st_mode & stat.S_IRUSR:
                 continue
 
-            if os.path.isfile(p):
+            if os.path.isfile(p) and os.access(p, os.R_OK):
                 _, out = cmd('cat %s/%s' % (path, f))
                 dfs[f] = out.strip()
             elif os.path.isdir(p):
