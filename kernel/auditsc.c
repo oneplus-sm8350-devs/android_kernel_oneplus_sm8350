@@ -2594,7 +2594,7 @@ void __audit_ntp_log(const struct audit_ntp_data *ad)
 		}
 }
 
-void audit_log_task(struct audit_buffer *ab)
+static void audit_log_task(struct audit_buffer *ab)
 {
 	kuid_t auid, uid;
 	kgid_t gid;
