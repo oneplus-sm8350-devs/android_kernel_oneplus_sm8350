@@ -249,7 +249,7 @@ static void xdp_umem_release(struct xdp_umem *umem)
 	xdp_umem_unmap_pages(umem);
 	xdp_umem_unpin_pages(umem);
 
-	kfree(umem->pages);
+	kvfree(umem->pages);
 	umem->pages = NULL;
 
 	xdp_umem_unaccount_pages(umem);
@@ -412,7 +412,8 @@ static int xdp_umem_reg(struct xdp_umem *umem, struct xdp_umem_reg *mr)
 	if (err)
 		goto out_account;
 
-	umem->pages = kcalloc(umem->npgs, sizeof(*umem->pages), GFP_KERNEL);
+	umem->pages = kvcalloc(umem->npgs, sizeof(*umem->pages),
+			       GFP_KERNEL_ACCOUNT);
 	if (!umem->pages) {
 		err = -ENOMEM;
 		goto out_pin;
@@ -422,7 +423,7 @@ static int xdp_umem_reg(struct xdp_umem *umem, struct xdp_umem_reg *mr)
 	if (!err)
 		return 0;
 
-	kfree(umem->pages);
+	kvfree(umem->pages);
 
 out_pin:
 	xdp_umem_unpin_pages(umem);
