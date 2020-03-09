@@ -366,7 +366,7 @@ static inline void sk_psock_restore_proto(struct sock *sk,
 		struct inet_connection_sock *icsk = inet_csk(sk);
 		bool has_ulp = !!icsk->icsk_ulp_data;
 
-		if (has_ulp) {
+		if (inet_csk_has_ulp(sk)) {
 			/* TLS does not have an unhash proto in SW cases, but we need
 			 * to ensure we stop using the sock_map unhash routine because
 			 * the associated psock is being removed. So use the original
@@ -382,6 +382,8 @@ static inline void sk_psock_restore_proto(struct sock *sk,
 		psock->sk_proto = NULL;
 	} else {
 		sk->sk_write_space = psock->saved_write_space;
+		/* Pairs with lockless read in sk_clone_lock() */
+		WRITE_ONCE(sk->sk_prot, psock->sk_proto);
 	}
 }
 
