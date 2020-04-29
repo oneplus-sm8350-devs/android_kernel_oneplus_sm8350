@@ -268,6 +268,8 @@ int get_fd_type(int fd)
 		return BPF_OBJ_MAP;
 	else if (strstr(buf, "bpf-prog"))
 		return BPF_OBJ_PROG;
+	else if (strstr(buf, "bpf-link"))
+		return BPF_OBJ_LINK;
 
 	return BPF_OBJ_UNKNOWN;
 }
