@@ -377,16 +377,23 @@ static void __maybe_unused rcu_momentary_dyntick_idle(void)
 }
 
 /**
- * rcu_is_cpu_rrupt_from_idle - see if interrupted from idle
+ * rcu_is_cpu_rrupt_from_idle - see if 'interrupted' from idle
  *
  * If the current CPU is idle and running at a first-level (not nested)
- * interrupt from idle, return true.  The caller must have at least
- * disabled preemption.
+ * interrupt, or directly, from idle, return true.
+ *
+ * The caller must have at least disabled IRQs.
  */
 static int rcu_is_cpu_rrupt_from_idle(void)
 {
-	/* Called only from within the scheduling-clock interrupt */
-	lockdep_assert_in_irq();
+	long nesting;
+
+	/*
+	 * Usually called from the tick; but also used from smp_function_call()
+	 * for expedited grace periods. This latter can result in running from
+	 * the idle task, instead of an actual IPI.
+	 */
+	lockdep_assert_irqs_disabled();
 
 	/* Check for counter underflows */
 	RCU_LOCKDEP_WARN(__this_cpu_read(rcu_data.dynticks_nesting) < 0,
@@ -395,8 +402,14 @@ static int rcu_is_cpu_rrupt_from_idle(void)
 			 "RCU dynticks_nmi_nesting counter underflow/zero!");
 
 	/* Are we at first interrupt nesting level? */
-	if (__this_cpu_read(rcu_data.dynticks_nmi_nesting) != 1)
+	nesting = __this_cpu_read(rcu_data.dynticks_nmi_nesting);
+	if (nesting > 1)
 		return false;
+
+	/*
+	 * If we're not in an interrupt, we must be in the idle task!
+	 */
+	WARN_ON_ONCE(!nesting && !is_idle_task(current));
 
 	/* Does CPU appear to be idle from an RCU standpoint? */
 	return __this_cpu_read(rcu_data.dynticks_nesting) == 0;
@@ -1102,7 +1115,6 @@ static int rcu_implicit_dynticks_qs(struct rcu_data *rdp)
 		if (IS_ENABLED(CONFIG_IRQ_WORK) &&
 		    !rdp->rcu_iw_pending && rdp->rcu_iw_gp_seq != rnp->gp_seq &&
 		    (rnp->ffmask & rdp->grpmask)) {
-			init_irq_work(&rdp->rcu_iw, rcu_iw_handler);
 			rdp->rcu_iw_pending = true;
 			rdp->rcu_iw_gp_seq = rnp->gp_seq;
 			irq_work_queue_on(&rdp->rcu_iw, rdp->cpu);
@@ -3054,6 +3066,7 @@ int rcutree_prepare_cpu(unsigned int cpu)
 	rdp->cpu_no_qs.b.norm = true;
 	rdp->core_needs_qs = false;
 	rdp->rcu_iw_pending = false;
+	rdp->rcu_iw = IRQ_WORK_INIT_HARD(rcu_iw_handler);
 	rdp->rcu_iw_gp_seq = rnp->gp_seq - 1;
 	trace_rcu_grace_period(rcu_state.name, rdp->gp_seq, TPS("cpuonl"));
 	raw_spin_unlock_irqrestore_rcu_node(rnp, flags);
