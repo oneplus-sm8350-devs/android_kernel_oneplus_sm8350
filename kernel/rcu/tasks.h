@@ -22,8 +22,6 @@ typedef void (*rcu_tasks_gp_func_t)(struct rcu_tasks *rtp);
  * @kthread_ptr: This flavor's grace-period/callback-invocation kthread.
  * @gp_func: This flavor's grace-period-wait function.
  * @call_func: This flavor's call_rcu()-equivalent function.
- * @name: This flavor's textual name.
- * @kname: This flavor's kthread name.
  */
 struct rcu_tasks {
 	struct rcu_head *cbs_head;
@@ -33,20 +31,16 @@ struct rcu_tasks {
 	struct task_struct *kthread_ptr;
 	rcu_tasks_gp_func_t gp_func;
 	call_rcu_func_t call_func;
-	char *name;
-	char *kname;
 };
 
-#define DEFINE_RCU_TASKS(rt_name, gp, call, n)				\
-static struct rcu_tasks rt_name =					\
+#define DEFINE_RCU_TASKS(name, gp, call)				\
+static struct rcu_tasks name =						\
 {									\
-	.cbs_tail = &rt_name.cbs_head,					\
-	.cbs_wq = __WAIT_QUEUE_HEAD_INITIALIZER(rt_name.cbs_wq),	\
-	.cbs_lock = __RAW_SPIN_LOCK_UNLOCKED(rt_name.cbs_lock),		\
+	.cbs_tail = &name.cbs_head,					\
+	.cbs_wq = __WAIT_QUEUE_HEAD_INITIALIZER(name.cbs_wq),		\
+	.cbs_lock = __RAW_SPIN_LOCK_UNLOCKED(name.cbs_lock),		\
 	.gp_func = gp,							\
 	.call_func = call,						\
-	.name = n,							\
-	.kname = #rt_name,						\
 }
 
 /* Track exiting tasks in order to allow them to be waited for. */
@@ -151,8 +145,8 @@ static void __init rcu_spawn_tasks_kthread_generic(struct rcu_tasks *rtp)
 {
 	struct task_struct *t;
 
-	t = kthread_run(rcu_tasks_kthread, rtp, "%s_kthread", rtp->kname);
-	if (WARN_ONCE(IS_ERR(t), "%s: Could not start %s grace-period kthread, OOM is now expected behavior\n", __func__, rtp->name))
+	t = kthread_run(rcu_tasks_kthread, rtp, "rcu_tasks_kthread");
+	if (WARN_ONCE(IS_ERR(t), "%s: Could not start Tasks-RCU grace-period kthread, OOM is now expected behavior\n", __func__))
 		return;
 	smp_mb(); /* Ensure others see full kthread. */
 }
@@ -348,7 +342,7 @@ static void rcu_tasks_wait_gp(struct rcu_tasks *rtp)
 }
 
 void call_rcu_tasks(struct rcu_head *rhp, rcu_callback_t func);
-DEFINE_RCU_TASKS(rcu_tasks, rcu_tasks_wait_gp, call_rcu_tasks, "RCU Tasks");
+DEFINE_RCU_TASKS(rcu_tasks, rcu_tasks_wait_gp, call_rcu_tasks);
 
 /**
  * call_rcu_tasks() - Queue an RCU for invocation task-based grace period
@@ -443,8 +437,7 @@ static void rcu_tasks_rude_wait_gp(struct rcu_tasks *rtp)
 }
 
 void call_rcu_tasks_rude(struct rcu_head *rhp, rcu_callback_t func);
-DEFINE_RCU_TASKS(rcu_tasks_rude, rcu_tasks_rude_wait_gp, call_rcu_tasks_rude,
-		 "RCU Tasks Rude");
+DEFINE_RCU_TASKS(rcu_tasks_rude, rcu_tasks_rude_wait_gp, call_rcu_tasks_rude);
 
 /**
  * call_rcu_tasks_rude() - Queue a callback rude task-based grace period
