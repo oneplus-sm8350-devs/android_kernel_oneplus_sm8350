@@ -1412,8 +1412,7 @@ static inline size_t flow_keys_hash_length(const struct flow_keys *flow)
 	/* flow.addrs MUST be the last member in struct flow_keys because
 	 * different L3 protocols have different address length
 	 */
-	BUILD_BUG_ON(offsetof(typeof(*flow), addrs) !=
-		     sizeof(*flow) - sizeof(flow->addrs));
+	BUILD_BUG_ON((sizeof(*flow) - FLOW_KEYS_HASH_OFFSET) % sizeof(u32));
 
 	switch (flow->control.addr_type) {
 	case FLOW_DISSECTOR_KEY_IPV4_ADDRS:
